@@ -1,0 +1,10 @@
+{
+  "extends": ["eslint:recommended", "google"],
+  "rules": {
+    "indent": ["error", 2],
+    "linebreak-style": "off",
+    "no-var": "off",
+    "max-len": ["error", 120],
+    "require-jsdoc": "off"
+  }
+}
