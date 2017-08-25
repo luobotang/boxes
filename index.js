@@ -9,6 +9,7 @@
     this.addBox();
     this.addBox();
     this.created = this.updated = Date.now();
+    this.maxCount = 100;
   }
 
   BoxGroup.prototype = Object.create(THREE.Group.prototype);
@@ -19,6 +20,10 @@
     if (time - this.updated > 1000) {
       this.addBox();
       this.updated = time;
+    }
+    // keep children count under `maxCount`
+    if (this.children.length > this.maxCount) {
+      this.remove(this.children[0]);
     }
     this.children.forEach(function(box) {
       box.update();
@@ -44,6 +49,8 @@
     this._rx = Math.random() > 0.5 ? 0 : (Math.random() - 0.5) * 0.1;
     this._ry = Math.random() > 0.5 ? 0 : (Math.random() - 0.5) * 0.1;
     this._rz = Math.random() > 0.5 ? 0 : (Math.random() - 0.5) * 0.1;
+
+    this.created = Date.now();
   }
 
   Box.prototype = Object.create(THREE.Mesh.prototype);
@@ -118,4 +125,8 @@
   }
 
   render();
+
+  document.body.addEventListener('click', function() {
+    boxes.addBox();
+  });
 })();
