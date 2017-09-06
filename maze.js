@@ -1,4 +1,4 @@
-/* global THREE, Float32Array */
+/* global THREE */
 
 (function() {
   var mazeData = [
@@ -150,6 +150,8 @@
 
   function Controler(options) {
     this.options = options;
+    this.maze = options.maze;
+    this.maze.data = options.mazeData;
     this.scene = options.scene;
     this.camera = options.camera;
     this.renderer = options.renderer;
@@ -187,11 +189,25 @@
       new THREE.BoxBufferGeometry(0.3, 0.3, 0.3),
       new THREE.MeshLambertMaterial({color: 0xff0000})
     );
-    point.position.x = this.position.x;
-    point.position.y = this.position.y;
-    point.position.z = this.position.z;
     this.scene.add(point);
     this.point = point;
+
+    // entry
+    var entry = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 10, 10),
+      new THREE.MeshBasicMaterial({color: 0xff0000})
+    );
+    entry.position.set(-1, 4.5, 1);
+
+    // exit
+    var exit = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 10, 10),
+      new THREE.MeshBasicMaterial({color: 0x0000ff})
+    );
+    exit.position.set(11, 3.5, 1);
+
+    this.scene.add(entry);
+    this.scene.add(exit);
   };
 
   Controler.prototype.addPanel = function() {
@@ -250,12 +266,12 @@
   Controler.prototype.toggleFrame = function() {
     if (this.state.frame) {
       this.state.frame = false;
-      this.scene.remove(maze.frame);
-      this.scene.add(maze.walls);
+      this.scene.remove(this.maze.frame);
+      this.scene.add(this.maze.walls);
     } else {
       this.state.frame = true;
-      this.scene.remove(maze.walls);
-      this.scene.add(maze.frame);
+      this.scene.remove(this.maze.walls);
+      this.scene.add(this.maze.frame);
     }
   };
 
@@ -288,12 +304,26 @@
   };
 
   Controler.prototype.goForward = function() {
-    this.position.x += this.direction.x;
-    this.position.y += this.direction.y;
+    var currentX = this.position.x;
+    var currentY = this.position.y;
+    var targetX = currentX + this.direction.x;
+    var targetY = currentY + this.direction.y;
+    if (this.isThroughWall(currentX, currentY, targetX + 0.2, targetY + 0.2)) {
+      return;
+    }
+    this.position.x = targetX;
+    this.position.y = targetY;
   };
   Controler.prototype.goBack = function() {
-    this.position.x -= this.direction.x;
-    this.position.y -= this.direction.y;
+    var currentX = this.position.x;
+    var currentY = this.position.y;
+    var targetX = currentX - this.direction.x;
+    var targetY = currentY - this.direction.y;
+    if (this.isThroughWall(currentX, currentY, targetX + 0.2, targetY + 0.2)) {
+      return;
+    }
+    this.position.x = targetX;
+    this.position.y = targetY;
   };
   Controler.prototype.turnLeft = function() {
     this.directionIndex = (this.directionIndex + 1) % this.directions.length;
@@ -306,6 +336,19 @@
     var direction = this.directions[this.directionIndex];
     this.direction.x = direction[0];
     this.direction.y = direction[1];
+  };
+
+  Controler.prototype.isThroughWall = function(x1, y1, x2, y2) {
+    var i = 0;
+    var data = this.maze.data;
+    var len = data.length;
+    while (i < len) {
+      if (checkLineSegmentCross(x1, y1, x2, y2, data[i], data[i + 1], data[i + 2], data[i + 3])) {
+        return true;
+      }
+      i += 4;
+    }
+    return false;
   };
 
   Controler.prototype.update = function() {
@@ -325,6 +368,19 @@
     point.position.y = position.y;
     point.position.z = position.z;
 
+    // direction line
+    if (this.directionLine) {
+      this.scene.remove(this.directionLine);
+    }
+    var directionLineGeometry = new THREE.Geometry();
+    directionLineGeometry.vertices.push(
+      new THREE.Vector3(position.x, position.y, 0.2 ),
+      new THREE.Vector3(position.x + normalizeNum(direction.x, 1), position.y + normalizeNum(direction.y, 1), 0.2)
+    );
+    this.directionLine = new THREE.Line(directionLineGeometry, new THREE.LineBasicMaterial({color: 0x00ff00}));
+    this.scene.add(this.directionLine);
+
+    // move light
     this.light.position.set(position.x, position.y, position.z);
     this.light.lookAt(directionTarget);
 
@@ -358,7 +414,42 @@
   new Controler({
     scene: scene,
     maze: maze,
+    mazeData: mazeData,
     camera: camera,
     renderer: initRenderer()
   });
+
+  /* eslint-disable camelcase */
+  function checkLineSegmentCross(
+    line1_x1, line1_y1, line1_x2, line1_y2,
+    line2_x1, line2_y1, line2_x2, line2_y2
+  ) {
+    return (
+      isDiff(
+        crossProduct(line1_x2 - line1_x1, line1_y2 - line1_y1, line2_x1 - line1_x1, line2_y1 - line1_y1),
+        crossProduct(line1_x2 - line1_x1, line1_y2 - line1_y1, line2_x2 - line1_x1, line2_y2 - line1_y1)
+      ) && isDiff(
+        crossProduct(line2_x2 - line2_x1, line2_y2 - line2_y1, line1_x1 - line2_x1, line1_y1 - line2_y1),
+        crossProduct(line2_x2 - line2_x1, line2_y2 - line2_y1, line1_x2 - line2_x1, line1_y2 - line2_y1)
+      )
+    );
+  }
+  /* eslin-enable camelcase */
+
+  // http://www.cnblogs.com/Duahanlang/archive/2013/05/11/3073434.html
+  function crossProduct(x1, y1, x2, y2) {
+    return x1 * y2 - x2 * y1;
+  }
+
+  function isDiff(m, n) {
+    if (m > 0) return n < 0;
+    if (m === 0) return false;
+    if (m < 0) return n > 0;
+  }
+
+  function normalizeNum(n, x) {
+    if (n > 0) return x;
+    if (n === 0) return 0;
+    if (n < 0) return -x;
+  }
 })();
