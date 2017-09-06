@@ -220,7 +220,7 @@
       } else if (keyCode === Keys.S) {
         ctrl.goBack();
       } else if (keyCode === Keys.P) {
-        ctrl.preview();
+        ctrl.togglePreview();
         ctrl.render();
         return;
       } else if (keyCode === Keys.G) {
@@ -230,6 +230,7 @@
       } else if (keyCode === Keys.F) {
         ctrl.toggleFrame();
         ctrl.render();
+        return;
       }
       ctrl.update();
       ctrl.render();
@@ -337,9 +338,15 @@
     this.renderer.render(this.scene, this.camera);
   };
 
-  Controler.prototype.preview = function() {
-    this.camera.position.set(5, 5, 20);
-    this.camera.lookAt(new THREE.Vector3(5, 5, 0));
+  Controler.prototype.togglePreview = function() {
+    if (this.state.preview) {
+      this.state.preview = false;
+      this.update();
+    } else {
+      this.state.preview = true;
+      this.camera.position.set(5, 5, 20);
+      this.camera.lookAt(new THREE.Vector3(5, 5, 0));
+    }
   };
 
   var scene = initScene();
