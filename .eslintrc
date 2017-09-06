@@ -5,6 +5,7 @@
     "linebreak-style": "off",
     "no-var": "off",
     "max-len": ["error", 120],
-    "require-jsdoc": "off"
+    "require-jsdoc": "off",
+    "comma-dangle": "off"
   }
 }
