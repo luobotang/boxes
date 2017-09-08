@@ -180,10 +180,10 @@
     };
     this.directionIndex = 0;
     this.directions = [
-      [0.2, 0], [0.17, 0.1], [0.1, 0.17],
-      [0, 0.2], [-0.1, 0.17], [-0.17, 0.1],
-      [-0.2, 0], [-0.17, -0.1], [-0.1, -0.17],
-      [0, -0.2], [0.1, -0.17], [0.17, -0.1]
+      [0.2, 0], [0.173, 0.1], [0.1, 0.173],
+      [0, 0.2], [-0.1, 0.173], [-0.173, 0.1],
+      [-0.2, 0], [-0.173, -0.1], [-0.1, -0.173],
+      [0, -0.2], [0.1, -0.173], [0.173, -0.1]
     ];
   };
 
@@ -228,6 +228,7 @@
 
   Controler.prototype.initEvents = function() {
     var ctrl = this;
+
     document.addEventListener('keypress', function(e) {
       var keyCode = e.keyCode;
       if (keyCode === Keys.W) {
@@ -255,7 +256,20 @@
       }
       ctrl.update();
       ctrl.render();
-    });
+    }, false);
+
+    if (ctrl.options.mouseMove) {
+      var onmousemove = function(e) {
+        ctrl.updateDirectionWithMouseMove(e.movementX, e.movementY);
+      };
+      document.addEventListener('pointerlockchange', function() {
+        if (document.pointerLockElement === ctrl.renderer.domElement) {
+          document.addEventListener('mousemove', onmousemove);
+        } else {
+          document.removeEventListener('mousemove', onmousemove);
+        }
+      }, false);
+    }
   };
 
   Controler.prototype.toggleGrid = function() {
@@ -311,24 +325,30 @@
   Controler.prototype.goForward = function() {
     var currentX = this.position.x;
     var currentY = this.position.y;
-    var targetX = currentX + this.direction.x;
-    var targetY = currentY + this.direction.y;
-    if (this.isThroughWall(currentX, currentY, targetX + 0.2, targetY + 0.2)) {
+    var directionX = this.direction.x;
+    var directionY = this.direction.y;
+    if (this.isThroughWall(
+      currentX, currentY,
+      currentX + directionX * 3, currentY + directionY * 3
+    )) {
       return;
     }
-    this.position.x = targetX;
-    this.position.y = targetY;
+    this.position.x = currentX + directionX;
+    this.position.y = currentY + directionY;
   };
   Controler.prototype.goBack = function() {
     var currentX = this.position.x;
     var currentY = this.position.y;
-    var targetX = currentX - this.direction.x;
-    var targetY = currentY - this.direction.y;
-    if (this.isThroughWall(currentX, currentY, targetX + 0.2, targetY + 0.2)) {
+    var directionX = this.direction.x;
+    var directionY = this.direction.y;
+    if (this.isThroughWall(
+      currentX, currentY,
+      currentX - directionX * 3, currentY - directionY * 3
+    )) {
       return;
     }
-    this.position.x = targetX;
-    this.position.y = targetY;
+    this.position.x = currentX - directionX;
+    this.position.y = currentY - directionY;
   };
   Controler.prototype.turnLeft = function() {
     this.directionIndex = (this.directionIndex + 1) % this.directions.length;
@@ -380,7 +400,7 @@
     var directionLineGeometry = new THREE.Geometry();
     directionLineGeometry.vertices.push(
       new THREE.Vector3(position.x, position.y, 0.2 ),
-      new THREE.Vector3(position.x + normalizeNum(direction.x, 1), position.y + normalizeNum(direction.y, 1), 0.2)
+      new THREE.Vector3(position.x + direction.x * 5, position.y + direction.y * 5, 0.2)
     );
     this.directionLine = new THREE.Line(directionLineGeometry, new THREE.LineBasicMaterial({color: 0x00ff00}));
     this.scene.add(this.directionLine);
@@ -413,10 +433,12 @@
   Controler.prototype.toggleMouseMove = function() {
     if (this.state.mouseMove) {
       this.state.mouseMove = false;
-      this._stopMouseMove();
+      document.exitPointerLock();
+      this.debug('stop capture mouse move');
     } else {
       this.state.mouseMove = true;
-      this._startMouseMove();
+      this.renderer.domElement.requestPointerLock();
+      this.debug('start capture mouse move');
     }
   };
 
@@ -448,26 +470,12 @@
     }
   };
 
-  Controler.prototype._startMouseMove = function() {
-    var ctrl = this;
-    var onmousemove = this._onmousemove || (this._onmousemove = function(e) {
-      ctrl.updateDirectionWithMouseMove(e.movementX, e.movementY);
-    });
-    document.addEventListener('mousemove', onmousemove);
-    this.renderer.domElement.requestPointerLock();
-    this.debug('start capture mouse move');
-  };
-
-  Controler.prototype._stopMouseMove = function() {
-    document.removeEventListener('mousemove', this._onmousemove);
-    document.exitPointerLock();
-    this.debug('stop capture mouse move');
-  };
 
   Controler.prototype.debug = function(message) {
     if (this.options.debug) {
-      var args = [].slice.call(arguments, 1);
+      var args = [].slice.call(arguments, 1); // eslint-disable-line prefer-rest-params
       var i = 0;
+      // eslint-disable-next-line no-console
       console.log('[maze] ' + message.replace(/%s/g, function(m) {
         return args[i++];
       }));
@@ -486,7 +494,8 @@
     mazeData: mazeData,
     camera: camera,
     renderer: initRenderer(),
-    debug: true
+    debug: true,
+    mouseMove: true
   });
 
   /* eslint-disable camelcase */
@@ -515,11 +524,5 @@
     if (m > 0) return n < 0;
     if (m === 0) return false;
     if (m < 0) return n > 0;
-  }
-
-  function normalizeNum(n, x) {
-    if (n > 0) return x;
-    if (n === 0) return 0;
-    if (n < 0) return -x;
   }
 })();
