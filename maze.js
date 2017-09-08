@@ -161,7 +161,6 @@
     this.initPosition();
     this.addPoint();
     this.addLight();
-    this.initEvents();
     this.addPanel();
     this.update();
     this.render();
@@ -234,9 +233,9 @@
       if (keyCode === Keys.W) {
         ctrl.goForward();
       } else if (keyCode === Keys.A) {
-        ctrl.turnLeft();
+        ctrl.moveLeft();
       } else if (keyCode === Keys.D) {
-        ctrl.turnRight();
+        ctrl.moveRight();
       } else if (keyCode === Keys.S) {
         ctrl.goBack();
       } else if (keyCode === Keys.P) {
@@ -269,6 +268,8 @@
           document.removeEventListener('mousemove', onmousemove);
         }
       }, false);
+
+      this._startMouseMove();
     }
   };
 
@@ -323,33 +324,52 @@
   };
 
   Controler.prototype.goForward = function() {
-    var currentX = this.position.x;
-    var currentY = this.position.y;
-    var directionX = this.direction.x;
-    var directionY = this.direction.y;
-    if (this.isThroughWall(
-      currentX, currentY,
-      currentX + directionX * 3, currentY + directionY * 3
-    )) {
-      return;
-    }
-    this.position.x = currentX + directionX;
-    this.position.y = currentY + directionY;
+    var direction = this.getDirection('forward');
+    this.moveDirection(direction);
   };
   Controler.prototype.goBack = function() {
+    var direction = this.getDirection('back');
+    this.moveDirection(direction);
+  };
+
+  Controler.prototype.moveLeft = function() {
+    var direction = this.getDirection('left');
+    this.moveDirection(direction);
+  };
+  Controler.prototype.moveRight = function() {
+    var direction = this.getDirection('right');
+    this.moveDirection(direction);
+  };
+
+  Controler.prototype.getDirection = function(desc) {
+    var directionCount = this.directions.length;
+    var currentIndex = this.directionIndex;
+    var targetIndex;
+    if (desc === 'left') {
+      targetIndex = (currentIndex + directionCount / 4) % directionCount;
+    } else if (desc === 'right') {
+      targetIndex = (currentIndex + directionCount - directionCount / 4) % directionCount;
+    } else if (desc === 'back') {
+      targetIndex = (currentIndex + directionCount / 2) % directionCount;
+    } else {
+      targetIndex = currentIndex;
+    }
+    return this.directions[targetIndex];
+  };
+
+  Controler.prototype.moveDirection = function(direction) {
     var currentX = this.position.x;
     var currentY = this.position.y;
-    var directionX = this.direction.x;
-    var directionY = this.direction.y;
     if (this.isThroughWall(
       currentX, currentY,
-      currentX - directionX * 3, currentY - directionY * 3
+      currentX + direction[0] * 3, currentY + direction[1] * 3
     )) {
       return;
     }
-    this.position.x = currentX - directionX;
-    this.position.y = currentY - directionY;
+    this.position.x = currentX + direction[0];
+    this.position.y = currentY + direction[1];
   };
+
   Controler.prototype.turnLeft = function() {
     this.directionIndex = (this.directionIndex + 1) % this.directions.length;
     var direction = this.directions[this.directionIndex];
@@ -432,14 +452,22 @@
 
   Controler.prototype.toggleMouseMove = function() {
     if (this.state.mouseMove) {
-      this.state.mouseMove = false;
-      document.exitPointerLock();
-      this.debug('stop capture mouse move');
+      this._stopMouseMove();
     } else {
-      this.state.mouseMove = true;
-      this.renderer.domElement.requestPointerLock();
-      this.debug('start capture mouse move');
+      this._startMouseMove();
     }
+  };
+
+  Controler.prototype._startMouseMove = function() {
+    this.state.mouseMove = true;
+    this.renderer.domElement.requestPointerLock();
+    this.debug('start capture mouse move');
+  };
+
+  Controler.prototype._stopMouseMove = function() {
+    this.state.mouseMove = false;
+    document.exitPointerLock();
+    this.debug('stop capture mouse move');
   };
 
   Controler.prototype.updateDirectionWithMouseMove = function(movementX, movementY) {
@@ -488,7 +516,7 @@
 
   scene.add(maze.walls);
 
-  new Controler({
+  var controler = new Controler({
     scene: scene,
     maze: maze,
     mazeData: mazeData,
@@ -497,6 +525,11 @@
     debug: true,
     mouseMove: true
   });
+
+  document.getElementById('mask').onclick = function() {
+    this.style.display = 'none';
+    controler.initEvents();
+  };
 
   /* eslint-disable camelcase */
   function checkLineSegmentCross(
