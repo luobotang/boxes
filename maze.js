@@ -59,6 +59,7 @@
     D: 100,
     F: 102,
     G: 103,
+    M: 109,
     S: 115,
     P: 112,
     W: 119
@@ -179,8 +180,10 @@
     };
     this.directionIndex = 0;
     this.directions = [
-      [0.2, 0], [0.1, 0.1], [0, 0.2], [-0.1, 0.1],
-      [-0.2, 0], [-0.1, -0.1], [0, -0.2], [0.1, -0.1]
+      [0.2, 0], [0.17, 0.1], [0.1, 0.17],
+      [0, 0.2], [-0.1, 0.17], [-0.17, 0.1],
+      [-0.2, 0], [-0.17, -0.1], [-0.1, -0.17],
+      [0, -0.2], [0.1, -0.17], [0.17, -0.1]
     ];
   };
 
@@ -247,6 +250,8 @@
         ctrl.toggleFrame();
         ctrl.render();
         return;
+      } else if (keyCode === Keys.M) {
+        ctrl.toggleMouseMove();
       }
       ctrl.update();
       ctrl.render();
@@ -405,6 +410,70 @@
     }
   };
 
+  Controler.prototype.toggleMouseMove = function() {
+    if (this.state.mouseMove) {
+      this.state.mouseMove = false;
+      this._stopMouseMove();
+    } else {
+      this.state.mouseMove = true;
+      this._startMouseMove();
+    }
+  };
+
+  Controler.prototype.updateDirectionWithMouseMove = function(movementX, movementY) {
+    var ctrl = this;
+    this._movementX = (this._movementX || 0) + movementX;
+    if (this._movementX > 50) {
+      this.debug('trun right, movement: %s', this._movementX);
+      this.turnRight(this._movementX);
+      this._movementX = 0;
+      if (!ctrl._nextAnimation) {
+        ctrl._nextAnimation = requestAnimationFrame(function() {
+          ctrl._nextAnimation = null;
+          ctrl.update();
+          ctrl.render();
+        });
+      }
+    } else if (this._movementX < -50) {
+      this.debug('trun left, movement: %s', this._movementX);
+      this.turnLeft(this._movementX);
+      this._movementX = 0;
+      if (!ctrl._nextAnimation) {
+        ctrl._nextAnimation = requestAnimationFrame(function() {
+          ctrl._nextAnimation = null;
+          ctrl.update();
+          ctrl.render();
+        });
+      }
+    }
+  };
+
+  Controler.prototype._startMouseMove = function() {
+    var ctrl = this;
+    var onmousemove = this._onmousemove || (this._onmousemove = function(e) {
+      ctrl.updateDirectionWithMouseMove(e.movementX, e.movementY);
+    });
+    document.addEventListener('mousemove', onmousemove);
+    this.renderer.domElement.requestPointerLock();
+    this.debug('start capture mouse move');
+  };
+
+  Controler.prototype._stopMouseMove = function() {
+    document.removeEventListener('mousemove', this._onmousemove);
+    document.exitPointerLock();
+    this.debug('stop capture mouse move');
+  };
+
+  Controler.prototype.debug = function(message) {
+    if (this.options.debug) {
+      var args = [].slice.call(arguments, 1);
+      var i = 0;
+      console.log('[maze] ' + message.replace(/%s/g, function(m) {
+        return args[i++];
+      }));
+    }
+  };
+
   var scene = initScene();
   var camera = initCamera();
   var maze = drawMaze(mazeData, scene);
@@ -416,7 +485,8 @@
     maze: maze,
     mazeData: mazeData,
     camera: camera,
-    renderer: initRenderer()
+    renderer: initRenderer(),
+    debug: true
   });
 
   /* eslint-disable camelcase */
